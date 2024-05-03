@@ -13,9 +13,6 @@ cli.add_argument('--match', '-m', help='Show only matches k=v where v in k', act
 cli.add_argument('-f', '--format', choices=['table', 'json'], default='table', help='output format')
 cli.add_argument('-s', '--sort', help='sort output by field')
 
-def display_server(s, fields=['name', 'status', 'id']):
-    return(dict(name=s.name, status=s.status))
-
 def addresses(s):
     # e.g. {'external': [{'version': 4, 'addr': 'x.x.x.x', 'OS-EXT-IPS:type': 'fixed', 'OS-EXT-IPS-MAC:mac_addr': 'x:x:x:x:x:x'}]}
     results = []
