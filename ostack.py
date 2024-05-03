@@ -27,6 +27,12 @@ def name(s):
 
 # --
 
+PROXIES = {
+    'server': 'compute'
+}
+PROXY_LIST_FUNCS = {
+    'server':'servers',
+}
 DEFAULT_FIELDS = {
     ('server', 'list'): {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str}
 }
@@ -40,41 +46,44 @@ if __name__ == '__main__':
     conn = openstack.connection.from_config()
     outputs = []
     
-    if args.object == 'server':
-        if args.action == 'list':
-            resources = conn.compute.servers(details=True)
-            fields = DEFAULT_FIELDS[(args.object, args.action)]
-            for r in resources:
-                resource_dict = r.to_dict()
-                resource_dict = dict((field, formatter(resource_dict[field])) for field, formatter in fields.items())
-                for k, v in matchers.items():
-                    if v not in resource_dict[k]:
-                        break
-                else: # only executes if matchers DIDN'T break
-                    outputs.append(resource_dict)
-                    continue
-        if args.action == 'delete':
-            if args.target is None:
-                raise ValueError('must supply target as 3rd argument')
-            elif args.target == '-': # read json from stdin
-                targets_json = json.loads(sys.stdin.read())
-                for t in targets_json:
-                    print(t['id'], t['name'])
-                targets = [t['id'] for t in target_json]
-            else:
-                # TODO: currently these must be IDs, consider coping with names?
-                targets = args.target.split(',')
-                for t in targets:
-                    print(t)
-            # TODO: fixme for using sys.stdin too?
-            # ui = input(f'Confirm deletion of {len(targets)} resources:?')
+    proxy = getattr(conn, PROXIES[args.object])
+    
+    if args.action == 'list':
+        resources = getattr(proxy, PROXY_LIST_FUNCS[args.object])(details=True)
+
+        fields = DEFAULT_FIELDS[(args.object, args.action)]
+        for r in resources:
+            resource_dict = r.to_dict()
+            resource_dict = dict((field, formatter(resource_dict[field])) for field, formatter in fields.items())
+            for k, v in matchers.items():
+                if v not in resource_dict[k]:
+                    break
+            else: # only executes if matchers DIDN'T break
+                outputs.append(resource_dict)
+                continue
+        if args.sort:
+            outputs = sorted(outputs, key=lambda d: d[args.sort])
+        if args.format == 'table':
+            table = tabulate(outputs, headers='keys')
+            print(table)
+        elif args.format == 'json':
+            print(json.dumps(outputs))
+
+    elif args.action == 'delete':
+        if args.target is None:
+            raise ValueError('must supply target as 3rd argument')
+        elif args.target == '-': # read json from stdin
+            targets_json = json.loads(sys.stdin.read())
+            for t in targets_json:
+                print(t['id'], t['name'])
+            targets = [t['id'] for t in target_json]
+        else:
+            # TODO: currently these must be IDs, consider coping with names?
+            targets = args.target.split(',')
             for t in targets:
-                conn.compute.delete_server(t)
-            exit() # TODO
-    if args.sort:
-        outputs = sorted(outputs, key=lambda d: d[args.sort])
-    if args.format == 'table':
-        table = tabulate(outputs, headers='keys')
-        print(table)
-    elif args.format == 'json':
-        print(json.dumps(outputs))
+                print(t)
+        # TODO: fixme for using sys.stdin too?
+        # ui = input(f'Confirm deletion of {len(targets)} resources:?')
+        for t in targets:
+            conn.compute.delete_server(t)
+    
