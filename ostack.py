@@ -23,8 +23,11 @@ def addresses(s):
         results.append(f'{net}={addrs}')
     return ','.join(results)
 
+def name(s):
+    return s['name']
+
 DEFAULT_FIELDS = {
-    ('server', 'list'): {'name':str, 'addresses':addresses, 'compute_host':str, 'id':str}
+    ('server', 'list'): {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str}
 }
 
 if __name__ == '__main__':
@@ -33,7 +36,7 @@ if __name__ == '__main__':
     # exit()
     conn = openstack.connection.from_config()
     outputs = []
-    matchers = dict(v.split('=') for v in args.match) if args.match else []
+    matchers = dict(v.split('=') for v in args.match) if args.match else {}
 
     if args.object == 'server':
         if args.action == 'list':
@@ -47,6 +50,7 @@ if __name__ == '__main__':
                     if v not in d[k]:
                         break
                 else: # only executes if matchers DIDN'T break
+                    
                     fields = DEFAULT_FIELDS[(args.object, args.action)]
                     out = dict((n, converter(d[n])) for n, converter in fields.items())
                     outputs.append(out)
@@ -56,16 +60,20 @@ if __name__ == '__main__':
             if args.target is None:
                 raise ValueError('must supply target as 3rd argument')
             elif args.target == '-': # read json from stdin
-                targets = json.loads(sys.stdin.read())
+                targets_json = json.loads(sys.stdin.read())
+                for t in targets_json:
+                    print(t['id'], t['name'])
+                targets = [t['id'] for t in target_json]
             else:
+                # TODO: currently these must be IDs, consider coping with names?
                 targets = args.target.split(',')
-            print('\n'.join(t['name'] for t in targets))
+                for t in targets:
+                    print(t)
             # TODO: fixme for using sys.stdin too?
             # ui = input(f'Confirm deletion of {len(targets)} resources:?')
-            for t in targets: # TODO: need to cope with this being a name?
-                print(t['id'], t['name'])
-                conn.compute.delete_server(t['id'])
-            exit()
+            for t in targets:
+                conn.compute.delete_server(t)
+            exit() # TODO
     if args.sort:
         outputs = sorted(outputs, key=lambda d: d[args.sort])
     if args.format == 'table':
