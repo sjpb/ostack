@@ -6,7 +6,7 @@ from tabulate import tabulate
 import openstack
 
 cli = argparse.ArgumentParser(description=__doc__)
-cli.add_argument('object', choices=['server'], help="object to operate on")
+cli.add_argument('object', choices=['server','image'], help="object to operate on")
 cli.add_argument('action', choices=['list', 'delete'], help="action to take")
 cli.add_argument('target', nargs='?', default=None, help="(optional) target")
 cli.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
@@ -25,16 +25,21 @@ def addresses(s):
 def name(s):
     return s['name']
 
+def bytes(s):
+    return int(s) / (1024 * 1024)
 # --
 
 PROXIES = {
-    'server': 'compute'
+    'server': 'compute',
+    'image': 'image',
 }
 PROXY_LIST_FUNCS = {
     'server':'servers',
+    'image':'images',
 }
 DEFAULT_FIELDS = {
-    ('server', 'list'): {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str}
+    ('server', 'list'): {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
+    ('image', 'list'): {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}
 }
 
 if __name__ == '__main__':
