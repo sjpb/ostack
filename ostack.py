@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+""" OpenStack CLI supporting selections, sorting and bulk operations """
 
 import argparse, pprint, json, operator, sys
 from tabulate import tabulate
 import openstack
 
-cli = argparse.ArgumentParser(description='List ports on a given network with instance and hypervisor information.')
-cli.add_argument('object', choices=['server'])
-cli.add_argument('action', choices=['list', 'delete'])
-cli.add_argument('target', nargs='?', default=None)
+cli = argparse.ArgumentParser(description=__doc__)
+cli.add_argument('object', choices=['server'], help="object to operate on")
+cli.add_argument('action', choices=['list', 'delete'], help="action to take")
+cli.add_argument('target', nargs='?', default=None, help="(optional) target")
 cli.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
 cli.add_argument('-f', '--format', choices=['table', 'json'], default='table', help='output format')
 cli.add_argument('-s', '--sort', help='sort output by field')
