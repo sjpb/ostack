@@ -37,7 +37,7 @@ PROXY_LIST_FUNCS = {
     'server':'servers',
     'image':'images',
 }
-DEFAULT_FIELDS = {
+DEFAULT_FIELDS = { # TODO: might need to split this into defaults and formatting to define formatting for non-default fields
     ('server', 'list'): {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
     ('image', 'list'): {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}
 }
@@ -72,7 +72,7 @@ if __name__ == '__main__':
             table = tabulate(outputs, headers='keys')
             print(table)
         elif args.format == 'json':
-            print(json.dumps(outputs))
+            print(json.dumps(outputs, indent=2))
 
     elif args.action == 'delete':
         if args.target is None:
