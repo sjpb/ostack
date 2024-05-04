@@ -29,7 +29,8 @@ OsCmd = collections.namedtuple('OsCmd', ('cmd', 'proxy', 'list_func', 'fields'))
 
 OS_CMDS = {
     'server':OsCmd('server', 'compute', 'servers', {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str}),
-    'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str})
+    'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}),
+    'port': OsCmd('port', 'network', 'ports', {'name':str, 'network_id':str, 'device_owner':str, 'device_id':str, 'binding_vnic_type':str})
 }
 
 for object, cmd in OS_CMDS.items():
@@ -57,6 +58,8 @@ if __name__ == '__main__':
 
         for r in resources:
             resource_dict = r.to_dict()
+            # pprint.pprint(resource_dict)
+            # exit()
             resource_dict = dict((field, formatter(resource_dict[field])) for field, formatter in os_cmd.fields.items())
             for k, v in matchers.items():
                 if v.lower() not in resource_dict[k].lower():
