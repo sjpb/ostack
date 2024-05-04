@@ -7,7 +7,7 @@ import openstack
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('-f', '--format', choices=['table', 'json'], default='table', help='output format')
-object_parser = parser.add_subparsers(dest='object') #, help='sub-command help')
+parser_sub = parser.add_subparsers(dest='object', help='OpenStack object')
 
 # -- formatter functions --
 def addresses(s):
@@ -33,13 +33,13 @@ OS_CMDS = {
 }
 
 for object, cmd in OS_CMDS.items():
-    sub_parser = object_parser.add_parser(object)
-    x = sub_parser.add_subparsers(dest='action')
-    list_parser = x.add_parser('list')
+    object_parser = parser_sub.add_parser(object)
+    parser_sub_sub = object_parser.add_subparsers(dest='action', help='action to take')
+    list_parser = parser_sub_sub.add_parser('list')
     list_parser.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
     list_parser.add_argument('-s', '--sort', help='sort output by field')
 
-    delete_parser = x.add_parser('delete')
+    delete_parser = parser_sub_sub.add_parser('delete')
     delete_parser.add_argument('target', help="id, comma-separated list of ids, or list of json objects with 'id' attribute")
 
 if __name__ == '__main__':
