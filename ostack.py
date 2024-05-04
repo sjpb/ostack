@@ -5,13 +5,9 @@ import argparse, pprint, json, operator, sys, collections
 from tabulate import tabulate
 import openstack
 
-cli = argparse.ArgumentParser(description=__doc__)
-cli.add_argument('object', choices=['server','image'], help="object to operate on")
-cli.add_argument('action', choices=['list', 'delete'], help="action to take")
-cli.add_argument('target', nargs='?', default=None, help="(optional) target")
-cli.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
-cli.add_argument('-f', '--format', choices=['table', 'json'], default='table', help='output format')
-cli.add_argument('-s', '--sort', help='sort output by field')
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('-f', '--format', choices=['table', 'json'], default='table', help='output format')
+object_parser = parser.add_subparsers(dest='object') #, help='sub-command help')
 
 # -- formatter functions --
 def addresses(s):
@@ -36,8 +32,16 @@ OS_CMDS = {
     'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str})
 }
 
+for object, cmd in OS_CMDS.items():
+    sub_parser = object_parser.add_parser(object)
+    sub_parser.add_argument('action', choices=['list', 'delete'], help="action to take")
+    sub_parser.add_argument('target', nargs='?', default=None, help="(optional) target")
+    sub_parser.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
+    sub_parser.add_argument('-s', '--sort', help='sort output by field')
+
+
 if __name__ == '__main__':
-    args = cli.parse_args()
+    args = parser.parse_args()
     # print(args)
     # exit()
     
