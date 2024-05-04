@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ OpenStack CLI supporting selections, sorting and bulk operations """
 
-import argparse, pprint, json, operator, sys
+import argparse, pprint, json, operator, sys, collections
 from tabulate import tabulate
 import openstack
 
@@ -29,17 +29,11 @@ def bytes(s):
     return int(s) / (1024 * 1024)
 # --
 
-PROXIES = {
-    'server': 'compute',
-    'image': 'image',
-}
-PROXY_LIST_FUNCS = {
-    'server':'servers',
-    'image':'images',
-}
-DEFAULT_FIELDS = { # TODO: might need to split this into defaults and formatting to define formatting for non-default fields
-    ('server', 'list'): {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
-    ('image', 'list'): {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}
+OsCmd = collections.namedtuple('OsCmd', ('cmd', 'proxy', 'list_func', 'fields'))
+
+OS_CMDS = {
+    'server':OsCmd('server', 'compute', 'servers', {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str}),
+    'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str})
 }
 
 if __name__ == '__main__':
@@ -47,19 +41,18 @@ if __name__ == '__main__':
     # print(args)
     # exit()
     
+    # TODO: be nice to have case-insensitive matching
     matchers = dict(v.split('=') for v in args.match) if args.match else {}
     conn = openstack.connection.from_config()
-    outputs = []
-    
-    proxy = getattr(conn, PROXIES[args.object])
-    
+    os_cmd = OS_CMDS[args.object]
+    proxy = getattr(conn, os_cmd.proxy)
     if args.action == 'list':
-        resources = getattr(proxy, PROXY_LIST_FUNCS[args.object])(details=True)
+        outputs = []
+        resources = getattr(proxy, os_cmd.list_func)(details=True)
 
-        fields = DEFAULT_FIELDS[(args.object, args.action)]
         for r in resources:
             resource_dict = r.to_dict()
-            resource_dict = dict((field, formatter(resource_dict[field])) for field, formatter in fields.items())
+            resource_dict = dict((field, formatter(resource_dict[field])) for field, formatter in os_cmd.fields.items())
             for k, v in matchers.items():
                 if v not in resource_dict[k]:
                     break
