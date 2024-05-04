@@ -47,7 +47,6 @@ if __name__ == '__main__':
     # print(args)
     # exit()
     
-    # TODO: be nice to have case-insensitive matching
     matchers = dict(v.split('=') for v in args.match) if args.match else {}
     conn = openstack.connection.from_config()
     os_cmd = OS_CMDS[args.object]
@@ -60,7 +59,7 @@ if __name__ == '__main__':
             resource_dict = r.to_dict()
             resource_dict = dict((field, formatter(resource_dict[field])) for field, formatter in os_cmd.fields.items())
             for k, v in matchers.items():
-                if v not in resource_dict[k]:
+                if v.lower() not in resource_dict[k].lower():
                     break
             else: # only executes if matchers DIDN'T break
                 outputs.append(resource_dict)
