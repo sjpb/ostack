@@ -34,11 +34,13 @@ OS_CMDS = {
 
 for object, cmd in OS_CMDS.items():
     sub_parser = object_parser.add_parser(object)
-    sub_parser.add_argument('action', choices=['list', 'delete'], help="action to take")
-    sub_parser.add_argument('target', nargs='?', default=None, help="(optional) target")
-    sub_parser.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
-    sub_parser.add_argument('-s', '--sort', help='sort output by field')
+    x = sub_parser.add_subparsers(dest='action')
+    list_parser = x.add_parser('list')
+    list_parser.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
+    list_parser.add_argument('-s', '--sort', help='sort output by field')
 
+    delete_parser = x.add_parser('delete')
+    delete_parser.add_argument('target', help="id, comma-separated list of ids, or list of json objects with 'id' attribute")
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -72,9 +74,7 @@ if __name__ == '__main__':
             print(json.dumps(outputs, indent=2))
 
     elif args.action == 'delete':
-        if args.target is None:
-            raise ValueError('must supply target as 3rd argument')
-        elif args.target == '-': # read json from stdin
+        if args.target == '-': # read json from stdin
             targets_json = json.loads(sys.stdin.read())
             for t in targets_json:
                 print(t['id'], t['name'])
