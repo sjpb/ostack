@@ -23,16 +23,51 @@ def name(s):
 
 def bytes(s):
     return int(s) / (1024 * 1024)
+def debug(s):
+    return str(s.to_dict())
+
 # --
 
-OsCmd = collections.namedtuple('OsCmd', ('cmd', 'proxy', 'list_func', 'fields', 'list_requires'), defaults=([],))
+class OsCmd:
+    def __init__(self, cmd, proxy, list_func, fields, list_requires=None):
+        self.cmd = cmd
+        self.proxy = proxy
+        self.list_func = list_func
+        self.fields = fields
+        self.list_requires = list_requires or []
+    
+    def list(self, conn):
+        """ return a dict of objects keyed by ID """
+        proxy = getattr(conn, self.proxy)
+        resources = getattr(proxy, os_cmd.list_func)(details=True)
+        return dict((r.id, r) for r in resources)
+    
+    # def format(self):
+
+class ByID:
+    def __init__(self, source_field, resource_type, resource_field):
+        """ source_field: field of current resource - is assumed to have an 'id' key
+            resource_type: the type of resource to use
+            resource_field: the field in the resource to return
+        """
+        self.source_field = source_field
+        self.resource_type = resource_type
+        self.resource_field = resource_field
+        
+    def __call__(self, resources, current_resource):
+        # print(len(resources[self.resource_type]))
+        target_resource_id =current_resource[self.source_field]['id']
+        if target_resource_id is None:
+            return None
+        target_resource = resources[self.resource_type][target_resource_id] # TODO:handle error here
+        return target_resource[self.resource_field]
 
 OS_CMDS = {
     'server':OsCmd(
         cmd='server',
         proxy='compute',
         list_func='servers',
-        fields={'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
+        fields={'name':str, 'image_name':ByID('image', 'image', 'name'), 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
         list_requires=['image'],
         ),
     'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}),
@@ -64,15 +99,18 @@ if __name__ == '__main__':
         resources = {}
         all_os_cmds = [user_os_cmd] + [OS_CMDS[n] for n in user_os_cmd.list_requires]
         for os_cmd in all_os_cmds:
-            proxy = getattr(conn, os_cmd.proxy)
-    
-            cmd_resources = getattr(proxy, os_cmd.list_func)(details=True)
-            resources[os_cmd.cmd] = dict(((r.id, r.to_dict()) for r in cmd_resources))
-
+            resources[os_cmd.cmd] = os_cmd.list(conn)
+        
         # format/expand the user command resources:
         outputs = []
         for id, resource in resources[user_os_cmd.cmd].items():
-            resource_dict = dict((field, formatter(resource[field])) for field, formatter in user_os_cmd.fields.items())
+            resource_dict = {}
+            for field, formatter in user_os_cmd.fields.items():
+                if isinstance(formatter, ByID):
+                    resource_dict[field] = formatter(resources, resource)
+                else:
+                    resource_dict[field] = formatter(resource[field])
+            
             for k, v in matchers.items():
                 if v.lower() not in resource_dict[k].lower():
                     break
