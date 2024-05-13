@@ -25,10 +25,16 @@ def bytes(s):
     return int(s) / (1024 * 1024)
 # --
 
-OsCmd = collections.namedtuple('OsCmd', ('cmd', 'proxy', 'list_func', 'fields'))
+OsCmd = collections.namedtuple('OsCmd', ('cmd', 'proxy', 'list_func', 'fields', 'list_requires'), defaults=([],))
 
 OS_CMDS = {
-    'server':OsCmd('server', 'compute', 'servers', {'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str}),
+    'server':OsCmd(
+        cmd='server',
+        proxy='compute',
+        list_func='servers',
+        fields={'name':str, 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
+        list_requires=['image'],
+        ),
     'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}),
     'port': OsCmd('port', 'network', 'ports', {'name':str, 'network_id':str, 'device_owner':str, 'device_id':str, 'binding_vnic_type':str})
 }
@@ -50,17 +56,23 @@ if __name__ == '__main__':
     
     matchers = dict(v.split('=') for v in args.match) if args.match else {}
     conn = openstack.connection.from_config()
-    os_cmd = OS_CMDS[args.object]
-    proxy = getattr(conn, os_cmd.proxy)
+    user_os_cmd = OS_CMDS[args.object]
+    
     if args.action == 'list':
-        outputs = []
-        resources = getattr(proxy, os_cmd.list_func)(details=True)
+        
+        # collect resources:
+        resources = {}
+        all_os_cmds = [user_os_cmd] + [OS_CMDS[n] for n in user_os_cmd.list_requires]
+        for os_cmd in all_os_cmds:
+            proxy = getattr(conn, os_cmd.proxy)
+    
+            cmd_resources = getattr(proxy, os_cmd.list_func)(details=True)
+            resources[os_cmd.cmd] = dict(((r.id, r.to_dict()) for r in cmd_resources))
 
-        for r in resources:
-            resource_dict = r.to_dict()
-            # pprint.pprint(resource_dict)
-            # exit()
-            resource_dict = dict((field, formatter(resource_dict[field])) for field, formatter in os_cmd.fields.items())
+        # format/expand the user command resources:
+        outputs = []
+        for id, resource in resources[user_os_cmd.cmd].items():
+            resource_dict = dict((field, formatter(resource[field])) for field, formatter in user_os_cmd.fields.items())
             for k, v in matchers.items():
                 if v.lower() not in resource_dict[k].lower():
                     break
@@ -75,19 +87,19 @@ if __name__ == '__main__':
         elif args.format == 'json':
             print(json.dumps(outputs, indent=2))
 
-    elif args.action == 'delete':
-        if args.target == '-': # read json from stdin
-            targets_json = json.loads(sys.stdin.read())
-            for t in targets_json:
-                print(t['id'], t['name'])
-            targets = [t['id'] for t in target_json]
-        else:
-            # TODO: currently these must be IDs, consider coping with names?
-            targets = args.target.split(',')
-            for t in targets:
-                print(t)
-        # TODO: fixme for using sys.stdin too?
-        # ui = input(f'Confirm deletion of {len(targets)} resources:?')
-        for t in targets:
-            conn.compute.delete_server(t)
+    # elif args.action == 'delete':
+    #     if args.target == '-': # read json from stdin
+    #         targets_json = json.loads(sys.stdin.read())
+    #         for t in targets_json:
+    #             print(t['id'], t['name'])
+    #         targets = [t['id'] for t in target_json]
+    #     else:
+    #         # TODO: currently these must be IDs, consider coping with names?
+    #         targets = args.target.split(',')
+    #         for t in targets:
+    #             print(t)
+    #     # TODO: fixme for using sys.stdin too?
+    #     # ui = input(f'Confirm deletion of {len(targets)} resources:?')
+    #     for t in targets:
+    #         conn.compute.delete_server(t)
     
