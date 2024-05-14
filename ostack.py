@@ -44,30 +44,23 @@ class OsCmd:
     
     # def format(self):
 
-class ByID:
-    def __init__(self, source_field, resource_type, resource_field):
-        """ source_field: field of current resource - is assumed to have an 'id' key
-            resource_type: the type of resource to use
-            resource_field: the field in the resource to return
-        """
-        self.source_field = source_field
-        self.resource_type = resource_type
-        self.resource_field = resource_field
-        
-    def __call__(self, resources, current_resource):
-        # print(len(resources[self.resource_type]))
-        target_resource_id =current_resource[self.source_field]['id']
+def lookup(source_field, resource_type, resource_field):
+
+    def call(resources, current_resource):
+        target_resource_id = current_resource[source_field]['id']
         if target_resource_id is None:
             return None
-        target_resource = resources[self.resource_type][target_resource_id] # TODO:handle error here
-        return target_resource[self.resource_field]
+        target_resource = resources[resource_type][target_resource_id] # TODO:handle error here
+        return target_resource[resource_field]
+    call.is_calculated = True
+    return call
 
 OS_CMDS = {
     'server':OsCmd(
         cmd='server',
         proxy='compute',
         list_func='servers',
-        fields={'name':str, 'image_name':ByID('image', 'image', 'name'), 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
+        fields={'name':str, 'image_name':lookup('image', 'image', 'name'), 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
         list_requires=['image'],
         ),
     'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}),
@@ -106,7 +99,7 @@ if __name__ == '__main__':
         for id, resource in resources[user_os_cmd.cmd].items():
             resource_dict = {}
             for field, formatter in user_os_cmd.fields.items():
-                if isinstance(formatter, ByID):
+                if getattr(formatter, 'is_calculated', False):
                     resource_dict[field] = formatter(resources, resource)
                 else:
                     resource_dict[field] = formatter(resource[field])
