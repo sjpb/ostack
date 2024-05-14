@@ -29,11 +29,12 @@ def debug(s):
 # --
 
 class OsCmd:
-    def __init__(self, cmd, proxy, list_func, fields, list_requires=None):
+    def __init__(self, cmd, proxy, list_func, default_fields, fields=None, list_requires=None):
         self.cmd = cmd
         self.proxy = proxy
         self.list_func = list_func
-        self.fields = fields
+        self.default_fields = default_fields
+        self.fields = fields or {}
         self.list_requires = list_requires or []
     
     def list(self, conn):
@@ -60,19 +61,32 @@ OS_CMDS = {
         cmd='server',
         proxy='compute',
         list_func='servers',
-        fields={'name':str, 'image_name':lookup('image', 'image', 'name'), 'status': str, 'addresses':addresses, 'flavor':name, 'compute_host':str, 'id':str},
+        default_fields=('name', 'image_name', 'status', 'addresses', 'flavor', 'compute_host', 'id'),
+        fields={'image_name':lookup('image', 'image', 'name'), 'addresses':addresses, 'flavor':name},
         list_requires=['image'],
         ),
-    'image': OsCmd('image', 'image', 'images', {'name':str, 'disk_format':str, 'size':bytes, 'visibility':str, 'id':str}),
-    'port': OsCmd('port', 'network', 'ports', {'name':str, 'network_id':str, 'device_owner':str, 'device_id':str, 'binding_vnic_type':str})
+    'image': OsCmd(
+        cmd='image',
+        proxy='image',
+        list_func='images',
+        default_fields = ('name', 'disk_format', 'size', 'visibility', 'id'),
+        fields={'size':bytes},
+        ),
+    'port': OsCmd(
+        cmd='port',
+        proxy='network',
+        list_func='ports',
+        default_fields=('name', 'network_id', 'device_owner', 'device_id', 'binding_vnic_type', 'id')
+        )
 }
 
 for object, cmd in OS_CMDS.items():
     object_parser = parser_sub.add_parser(object)
     parser_sub_sub = object_parser.add_subparsers(dest='action', help='action to take')
     list_parser = parser_sub_sub.add_parser('list')
-    list_parser.add_argument('--match', '-m', help='Show only matches k=v where v in k', action='append')
-    list_parser.add_argument('-s', '--sort', help='sort output by field')
+    list_parser.add_argument('--match', '-m', help='Show only matches FIELD=VALUE where VALUE in FIELD (case-insensitive). Can be given multiple times.', action='append')
+    list_parser.add_argument('-s', '--sort', help='Sort output by FIELD.', metavar='FIELD')
+    list_parser.add_argument('-c', '--columns', help='Show comma-separated fields.', metavar='FIELDS')
 
     delete_parser = parser_sub_sub.add_parser('delete')
     delete_parser.add_argument('target', help="id, comma-separated list of ids, or list of json objects with 'id' attribute")
@@ -98,11 +112,15 @@ if __name__ == '__main__':
         outputs = []
         for id, resource in resources[user_os_cmd.cmd].items():
             resource_dict = {}
-            for field, formatter in user_os_cmd.fields.items():
+            output_fields = args.columns.split(',') if args.columns else user_os_cmd.default_fields
+            for field_name in output_fields:
+                if field_name not in resource:
+                    exit(f"no column '{field_name}; valid columns are' in {', '.join(resource.keys())}")
+                formatter = user_os_cmd.fields.get(field_name, str)
                 if getattr(formatter, 'is_calculated', False):
-                    resource_dict[field] = formatter(resources, resource)
+                    resource_dict[field_name] = formatter(resources, resource)
                 else:
-                    resource_dict[field] = formatter(resource[field])
+                    resource_dict[field_name] = formatter(resource[field_name])
             
             for k, v in matchers.items():
                 rval = resource_dict[k]
