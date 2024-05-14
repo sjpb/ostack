@@ -23,8 +23,25 @@ def name(s):
 
 def bytes(s):
     return int(s) / (1024 * 1024)
+
 def debug(s):
     return str(s.to_dict())
+
+def lookup(source_field, resource_type, resource_field, source_subfield=None):
+
+    def call(resources, current_resource):
+        if source_subfield:
+            target_resource_id = current_resource[source_field][source_subfield]
+        else:
+            target_resource_id = current_resource[source_field]
+        if target_resource_id is None:
+            return None
+        if target_resource_id not in resources[resource_type]:
+            return None
+        target_resource = resources[resource_type][target_resource_id] # TODO:handle error here
+        return target_resource[resource_field]
+    call.is_calculated = True
+    return call
 
 # --
 
@@ -42,19 +59,7 @@ class OsCmd:
         proxy = getattr(conn, self.proxy)
         resources = getattr(proxy, os_cmd.list_func)(details=True)
         return dict((r.id, r) for r in resources)
-    
-    # def format(self):
 
-def lookup(source_field, resource_type, resource_field):
-
-    def call(resources, current_resource):
-        target_resource_id = current_resource[source_field]['id']
-        if target_resource_id is None:
-            return None
-        target_resource = resources[resource_type][target_resource_id] # TODO:handle error here
-        return target_resource[resource_field]
-    call.is_calculated = True
-    return call
 
 OS_CMDS = {
     'server':OsCmd(
@@ -62,7 +67,7 @@ OS_CMDS = {
         proxy='compute',
         list_func='servers',
         default_fields=('name', 'image_name', 'status', 'addresses', 'flavor', 'compute_host', 'id'),
-        fields={'image_name':lookup('image', 'image', 'name'), 'addresses':addresses, 'flavor':name},
+        fields={'image_name':lookup('image', 'image', 'name', 'id'), 'addresses':addresses, 'flavor':name},
         list_requires=['image'],
         ),
     'image': OsCmd(
@@ -76,8 +81,16 @@ OS_CMDS = {
         cmd='port',
         proxy='network',
         list_func='ports',
-        default_fields=('name', 'network_id', 'device_owner', 'device_id', 'binding_vnic_type', 'id')
-        )
+        default_fields=('name', 'network_name', 'device_owner', 'server_name', 'binding_vnic_type', 'id'),
+        fields={'network_name':lookup('network_id', 'network', 'name'), 'server_name':lookup('device_id', 'server', 'name')},
+        list_requires=['network', 'server']
+        ),
+    'network': OsCmd(
+        cmd='network',
+        proxy='network',
+        list_func='networks',
+        default_fields=('name', 'id'),
+    )
 }
 
 for object, cmd in OS_CMDS.items():
@@ -114,7 +127,7 @@ if __name__ == '__main__':
             resource_dict = {}
             output_fields = args.columns.split(',') if args.columns else user_os_cmd.default_fields
             for field_name in output_fields:
-                if field_name not in resource:
+                if field_name not in resource and field_name not in user_os_cmd.fields:
                     exit(f"no column '{field_name}; valid columns are' in {', '.join(resource.keys())}")
                 formatter = user_os_cmd.fields.get(field_name, str)
                 if getattr(formatter, 'is_calculated', False):
