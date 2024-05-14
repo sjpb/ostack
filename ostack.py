@@ -105,7 +105,8 @@ if __name__ == '__main__':
                     resource_dict[field] = formatter(resource[field])
             
             for k, v in matchers.items():
-                if v.lower() not in resource_dict[k].lower():
+                rval = resource_dict[k]
+                if rval is None or v.lower() not in rval.lower():
                     break
             else: # only executes if matchers DIDN'T break
                 outputs.append(resource_dict)
