@@ -123,12 +123,13 @@ if __name__ == '__main__':
         
         # format/expand the user command resources:
         outputs = []
+        valid_fields = sorted(set(list(resources[user_os_cmd.cmd].values())[0].keys() + list(user_os_cmd.fields.keys())))
         for id, resource in resources[user_os_cmd.cmd].items():
             resource_dict = {}
             output_fields = args.columns.split(',') if args.columns else user_os_cmd.default_fields
             for field_name in output_fields:
-                if field_name not in resource and field_name not in user_os_cmd.fields:
-                    exit(f"no column '{field_name}; valid columns are' in {', '.join(resource.keys())}")
+                if field_name not in valid_fields:
+                    exit(f"no column '{field_name}; valid columns are: {', '.join(valid_fields)}")
                 formatter = user_os_cmd.fields.get(field_name, str)
                 if getattr(formatter, 'is_calculated', False):
                     resource_dict[field_name] = formatter(resources, resource)
