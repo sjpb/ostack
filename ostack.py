@@ -35,9 +35,9 @@ def lookup(source_field, resource_type, resource_field, source_subfield=None):
         else:
             target_resource_id = current_resource[source_field]
         if target_resource_id is None:
-            return None
+            return '(unknown)'
         if target_resource_id not in resources[resource_type]:
-            return None
+            return '(unknown)'
         target_resource = resources[resource_type][target_resource_id] # TODO:handle error here
         return target_resource[resource_field]
     call.is_calculated = True
