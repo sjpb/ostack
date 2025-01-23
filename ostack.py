@@ -43,6 +43,12 @@ def lookup(source_field, resource_type, resource_field, source_subfield=None):
     call.is_calculated = True
     return call
 
+def display_name(s):
+    return s.get('display_name', '-')
+
+def instance_name(s):
+    return s.get('display_name', '-')
+instance_name.input_field = 'instance_info'
 # --
 
 class OsCmd:
@@ -63,11 +69,11 @@ class OsCmd:
 
 OS_CMDS = {
     'server':OsCmd(
-        cmd='server',
-        proxy='compute',
-        list_func='servers',
-        default_fields=('name', 'image_name', 'status', 'addresses', 'flavor', 'compute_host', 'id'),
-        fields={'image_name':lookup('image', 'image', 'name', 'id'), 'addresses':addresses, 'flavor':name},
+        cmd='server', # the first cli work - ostack *server*
+        proxy='compute', # conn.$PROXY - see e.g. https://docs.openstack.org/openstacksdk/latest/user/guides/compute.html#id1
+        list_func='servers', # see above link example
+        default_fields=('name', 'image_name', 'status', 'addresses', 'flavor', 'compute_host', 'id'),  # output fields shown by default
+        fields={'image_name':lookup('image', 'image', 'name', 'id'), 'addresses':addresses, 'flavor':name}, # output fields needing formatting
         list_requires=['image'],
         ),
     'image': OsCmd(
@@ -81,7 +87,7 @@ OS_CMDS = {
         cmd='port',
         proxy='network',
         list_func='ports',
-        default_fields=('name', 'network_name', 'device_owner', 'server_name', 'binding_vnic_type', 'id'),
+        default_fields=('name', 'network_name', 'device_owner', 'server_name', 'binding_vnic_type', 'id', 'security_group_ids'),
         fields={'network_name':lookup('network_id', 'network', 'name'), 'server_name':lookup('device_id', 'server', 'name')},
         list_requires=['network', 'server']
         ),
@@ -90,6 +96,16 @@ OS_CMDS = {
         proxy='network',
         list_func='networks',
         default_fields=('name', 'id'),
+    ),
+    # agh this is a pain; the command is 'baremetal node list'
+    'baremetal-node': OsCmd(
+        cmd='baremetal-node',
+        proxy='baremetal',
+        list_func='nodes',
+        #default_fields=('name', 'power_state', 'provision_state', 'resource_class', 'is_maintenance', 'instance_info'),
+        default_fields=('name', 'power_state', 'provision_state', 'is_maintenance', 'resource_class', 'instance_name'),
+        #fields = {'instance_info':display_name}
+        fields = {'instance_name':instance_name}
     )
 }
 
@@ -133,8 +149,11 @@ if __name__ == '__main__':
                 formatter = user_os_cmd.fields.get(field_name, str)
                 if getattr(formatter, 'is_calculated', False):
                     resource_dict[field_name] = formatter(resources, resource)
+                elif getattr(formatter, 'input_field', False):
+                    resource_dict[field_name] = formatter(resource[formatter.input_field])
                 else:
                     resource_dict[field_name] = formatter(resource[field_name])
+                    
             
             for k, v in matchers.items():
                 rval = resource_dict[k]
