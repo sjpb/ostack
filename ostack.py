@@ -10,6 +10,25 @@ parser.add_argument('-f', '--format', choices=['table', 'json'], default='table'
 parser_sub = parser.add_subparsers(dest='object', help='OpenStack object')
 
 # -- formatter functions --
+# There basically 3+1 types of function here, all of which are specified
+# by setting a key/value in .fields, where the key is the *output* field name and
+# the value is the function.
+# 1. Things like addresses(): This just takes and reformats a field. he input field
+#    is the same as the output field, so the key determines what gets passed to
+#    the function - not necessarily a string.
+# 2. Things like instance_name(): This has a property input_field set. In this
+#    case this determines what field is passed as input, so this can be different
+#    from the output field name.
+# 3. Things like server_names_from_attachments(): This returns a function which has
+#    a property is_calculated set to True. In this case the inner function is passed
+#    a map `resources` and an object `current_resource`. The former has keys
+#    which are resource types (e.g. "server") and values are a map of resource
+#    objects keyed by id. So resources[resource_type][id] -> resource object.
+#    If this requires resource types which are not the current resource type,
+#    list their names in `list_requires`.
+# 4. lookup(): This is a generalisation of 3, for cases where the required operation
+#    is to use a field in the current resource to find another resource by ID,
+#    then return a field of that. TODO: be nice to provide output formatting on that.
 def addresses(s):
     # e.g. {'external': [{'version': 4, 'addr': 'x.x.x.x', 'OS-EXT-IPS:type': 'fixed', 'OS-EXT-IPS-MAC:mac_addr': 'x:x:x:x:x:x'}]}
     results = []
