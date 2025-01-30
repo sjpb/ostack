@@ -46,9 +46,22 @@ def lookup(source_field, resource_type, resource_field, source_subfield=None):
 def display_name(s):
     return s.get('display_name', '-')
 
-def instance_name(s):
+def instance_name(s): # for baremetal node
     return s.get('display_name', '-')
 instance_name.input_field = 'instance_info'
+
+def server_names_from_attachments():
+    def call(resources, current_resource):
+        server_names = []
+        for attachment in current_resource['attachments']:
+            server_id = attachment['server_id']
+            server_name = resources['server'][server_id]['name']
+            server_names.append(server_name)
+        return ','.join(server_names)
+    call.is_calculated = True
+    return call
+
+
 # --
 
 class OsCmd:
@@ -106,7 +119,16 @@ OS_CMDS = {
         default_fields=('name', 'power_state', 'provision_state', 'is_maintenance', 'resource_class', 'instance_name'),
         #fields = {'instance_info':display_name}
         fields = {'instance_name':instance_name}
-    )
+    ),
+
+    'volume': OsCmd(
+        cmd='volume',
+        proxy='block_storage',
+        list_func='volumes',
+        default_fields=('id', 'name', 'status', 'size', 'volume_type', 'attached_to'),
+        fields = {'attached_to':server_names_from_attachments()},
+        list_requires=['server'],
+    ),
 }
 
 for object, cmd in OS_CMDS.items():
