@@ -84,10 +84,11 @@ def server_names_from_attachments():
 # --
 
 class OsCmd:
-    def __init__(self, cmd, proxy, list_func, default_fields, fields=None, list_requires=None):
+    def __init__(self, cmd, proxy, list_func, default_fields, list_func_args=None, fields=None, list_requires=None):
         self.cmd = cmd
         self.proxy = proxy
         self.list_func = list_func
+        self.list_func_args = list_func_args
         self.default_fields = default_fields
         self.fields = fields or {}
         self.list_requires = list_requires or []
@@ -95,9 +96,15 @@ class OsCmd:
     def list(self, conn):
         """ return a dict of objects keyed by ID """
         proxy = getattr(conn, self.proxy)
-        resources = getattr(proxy, os_cmd.list_func)(details=True)
+        list_func_args_evaled = self.list_func_args() if self.list_func_args is not None else []
+        resources = getattr(proxy, os_cmd.list_func)(*list_func_args_evaled, details=True)
         return dict((r.id, r) for r in resources)
 
+def delayed(str):
+    """ Python string to evaluate, will have access to connection object """
+    def func():
+        return eval(str)
+    return func
 
 OS_CMDS = {
     'server':OsCmd(
@@ -148,6 +155,15 @@ OS_CMDS = {
         fields = {'attached_to':server_names_from_attachments()},
         list_requires=['server'],
     ),
+
+    'project': OsCmd(
+        cmd='project',
+        proxy='identity',
+        list_func='user_projects',
+        list_func_args=delayed('[conn.current_user_id]'),
+        default_fields = ('id', 'name')
+    ),
+
 }
 
 for object, cmd in OS_CMDS.items():
@@ -168,6 +184,8 @@ if __name__ == '__main__':
     
     matchers = dict(v.split('=') for v in args.match) if args.match else {}
     conn = openstack.connection.from_config()
+    print(conn.current_project)
+    # exit()
     user_os_cmd = OS_CMDS[args.object]
     
     if args.action == 'list':
