@@ -140,7 +140,7 @@ OS_CMDS = {
         cmd='network',
         proxy='network',
         list_func='networks',
-        default_fields=('name', 'id'),
+        default_fields=('name', 'id', 'subnet_ids'),
     ),
     # agh this is a pain; the command is 'baremetal node list'
     'baremetal-node': OsCmd(

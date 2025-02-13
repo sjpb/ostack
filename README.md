@@ -14,7 +14,7 @@ of the default view compared to OpenStackClient:
 - `server`: Shows the Nova host the instance is on (subject to permissions/policy)
 - `volume`: ?
 
-It can provide json output via `-f --format` option to `ostack`.
+It can provide tabular (default) or json output via `-f --format` option to `ostack`.
 
 The `ostack * list` command provides useful filtering and output options:
     `--match, -m FIELD=VALUE`: Show only matches FIELD=VALUE where VALUE in
