@@ -13,7 +13,7 @@ parser_sub = parser.add_subparsers(dest='object', help='OpenStack object')
 # There basically 3+1 types of function here, all of which are specified
 # by setting a key/value in .fields, where the key is the *output* field name and
 # the value is the function.
-# 1. Things like addresses(): This just takes and reformats a field. he input field
+# 1. Things like addresses(): This just takes and reformats a field. The input field
 #    is the same as the output field, so the key determines what gets passed to
 #    the function - not necessarily a string.
 # 2. Things like instance_name(): This has a property input_field set. In this
@@ -21,9 +21,10 @@ parser_sub = parser.add_subparsers(dest='object', help='OpenStack object')
 #    from the output field name.
 # 3. Things like server_names_from_attachments(): This returns a function which has
 #    a property is_calculated set to True. In this case the inner function is passed
-#    a map `resources` and an object `current_resource`. The former has keys
-#    which are resource types (e.g. "server") and values are a map of resource
-#    objects keyed by id. So resources[resource_type][id] -> resource object.
+#    a map `resources` an object `current_resource` and the connection object.
+#    The former has keys which are resource types (e.g. "server") and values
+#    are a map of resource objects keyed by id. So
+#       resources[resource_type][id] -> resource object.
 #    If this requires resource types which are not the current resource type,
 #    list their names in `list_requires`.
 # 4. lookup(): This is a generalisation of 3, for cases where the required operation
@@ -48,7 +49,7 @@ def debug(s):
 
 def lookup(source_field, resource_type, resource_field, source_subfield=None):
 
-    def call(resources, current_resource):
+    def call(resources, current_resource, conn):
         if source_subfield:
             target_resource_id = current_resource[source_field][source_subfield]
         else:
@@ -70,7 +71,7 @@ def instance_name(s): # for baremetal node
 instance_name.input_field = 'instance_info'
 
 def server_names_from_attachments():
-    def call(resources, current_resource):
+    def call(resources, current_resource, conn):
         server_names = []
         for attachment in current_resource['attachments']:
             server_id = attachment['server_id']
@@ -80,6 +81,11 @@ def server_names_from_attachments():
     call.is_calculated = True
     return call
 
+def current_project():
+    def call(resources, current_resource, conn):
+        return '***' if current_resource.id == conn.current_project.id else ' '
+    call.is_calculated = True
+    return call
 
 # --
 
@@ -161,7 +167,8 @@ OS_CMDS = {
         proxy='identity',
         list_func='user_projects',
         list_func_args=delayed('[conn.current_user_id]'),
-        default_fields = ('id', 'name')
+        default_fields = ('current', 'id', 'name'),
+        fields = {'current':current_project()},
     ),
 
 }
@@ -184,8 +191,6 @@ if __name__ == '__main__':
     
     matchers = dict(v.split('=') for v in args.match) if args.match else {}
     conn = openstack.connection.from_config()
-    print(conn.current_project)
-    # exit()
     user_os_cmd = OS_CMDS[args.object]
     
     if args.action == 'list':
@@ -207,7 +212,7 @@ if __name__ == '__main__':
                     exit(f"no column '{field_name}; valid columns are: {', '.join(valid_fields)}")
                 formatter = user_os_cmd.fields.get(field_name, str)
                 if getattr(formatter, 'is_calculated', False):
-                    resource_dict[field_name] = formatter(resources, resource)
+                    resource_dict[field_name] = formatter(resources, resource, conn)
                 elif getattr(formatter, 'input_field', False):
                     resource_dict[field_name] = formatter(resource[formatter.input_field])
                 else:
