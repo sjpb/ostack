@@ -50,10 +50,15 @@ def lookup(source_field, resource_type, resource_field, source_subfield=None):
 
     def call(resources, current_resource):
         if source_subfield:
-            target_resource_id = current_resource[source_field][source_subfield]
+            source = current_resource.get(source_field, None)
+            if source is None:
+                target_resource_id is None
+            else:
+                target_resource_id = source.get(source_subfield, None)
         else:
-            target_resource_id = current_resource[source_field]
+            target_resource_id = current_resource.get(source_field, None)
         if target_resource_id is None:
+            print(f"can't get {source_field} from {resource_type}")
             return '(unknown)'
         if target_resource_id not in resources[resource_type]:
             return '(unknown)'
@@ -135,9 +140,9 @@ OS_CMDS = {
         proxy='baremetal',
         list_func='nodes',
         #default_fields=('name', 'power_state', 'provision_state', 'resource_class', 'is_maintenance', 'instance_info'),
-        default_fields=('name', 'power_state', 'provision_state', 'is_maintenance', 'resource_class', 'instance_name'),
-        #fields = {'instance_info':display_name}
-        fields = {'instance_name':instance_name}
+        default_fields=('name', 'power_state', 'provision_state', 'is_maintenance', 'resource_class', 'instance_name', 'instance_image'),
+        fields = {'instance_name':instance_name, 'instance_image':lookup('instance_info', 'image', 'name', 'image_source')},
+        list_requires=['image'],
     ),
 
     'volume': OsCmd(
