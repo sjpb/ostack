@@ -6,7 +6,7 @@ for developers than given by
 
 Currently it only supports a subset of resources. This list describes the benefits
 of the default view compared to OpenStackClient:
-- `baremetal-node`: Shows the resource class by default
+- `baremetal-node`: Shows the resource class, instance name and instance image
 - `image`: Shows disk format, size and visibility by default
 - `port`: Shows the attached instance, network name, vnic type and security group IDs by default
 - `network`: Currently the same
